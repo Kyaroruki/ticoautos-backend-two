@@ -1,26 +1,60 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { fetchPadronPerson } = require('../utils/padronService');
 
-// Este endpoint registra un usuario nuevo.
-// Ruta real: POST /api/auth/register
-const register = async (req, res) => {
+const lookupIdentity = async (req, res) => {
   try {
-    // Sacamos del body los campos esperados.
-    const { username, password, name } = req.body;
-    // Si vino archivo subido, guardamos solo el nombre; si no, dejamos string vacio.
-    const profileImage = req.file ? req.file.filename : '';
+    const identifyNumber = req.params.identifyNumber || req.query.identify_number;
 
-    // Si faltan datos minimos, cortamos de una vez.
-    if (!username || !password) {
+    if (identifyNumber === undefined || identifyNumber === null || String(identifyNumber).trim() === '') {
       return res.status(400).end();
     }
 
-    // Revisamos si el username ya existe para no duplicar usuarios.
-    const existingUser = await User.findByUsername(username);
-    // Si ya existe, respondemos 400 porque ese registro ya no procede.
-    if (existingUser) {
+    const person = await fetchPadronPerson(identifyNumber);
+
+    if (!person) {
+      return res.status(404).end();
+    }
+
+    return res.json(person);
+  } catch (error) {
+    return res.status(502).end();
+  }
+};
+
+// POST /api/auth/register
+const register = async (req, res) => {
+  try {
+  
+    const { username, password, identify_number, email, phone_number } = req.body;
+    const profileImage = req.file ? req.file.filename : ''; // Si se subió una imagen, guarda su nombre, sino deja vacío
+    const numericId = Number(identify_number); // Convertimos el identify_number a número para validarlo
+
+    if (!username || !password || numericId <= 0 || !email || !phone_number) {
       return res.status(400).end();
+    }
+
+    const person = await fetchPadronPerson(numericId);// Validamos que la cédula exista en el padrón
+
+    if (!person) { // Si no existe en el padron termina
+      return res.status(404).end();
+    }
+
+    // Verificamos que no exista otro usuario con el mismo username, email o identify_number.
+    const existingUserByUsername = await User.findByUsername(username);
+    if (existingUserByUsername) {
+      return res.status(409).end();
+    }
+
+    const existingUserByEmail = await User.findOne({ email });
+    if (existingUserByEmail) {
+      return res.status(409).end();
+    }
+
+    const existingUserByIdentifyNumber = await User.findOne({ identify_number: numericId });
+    if (existingUserByIdentifyNumber) {
+      return res.status(409).end();
     }
 
     // Convertimos la contraseña en hash para no guardar la original.
@@ -30,61 +64,53 @@ const register = async (req, res) => {
     await User.createUser({
       username,
       password: hashedPassword,
-      name: name || '',
+      name: person.name,
+      lastname: person.lastname,
+      identify_number: numericId,
+      email,
+      phone_number,
       profileImage: profileImage || ''
     });
 
-    // Si todo salio bien, devolvemos 201 Created sin body.
-    res.status(201).end();
+    return res.status(201).end();
   } catch (error) {
-    // Si algo explota, devolvemos error interno.
-    res.status(500).end();
+    return res.status(500).end();
   }
 };
 
-// Este endpoint autentica a un usuario existente.
-// Ruta real: POST /api/auth/login
+// Ruta: POST /api/auth/login
 const login = async (req, res) => {
   try {
-    // Leemos las credenciales enviadas por el frontend.
     const { username, password } = req.body;
 
-    // Si falta alguna, no tiene sentido seguir.
     if (!username || !password) {
       return res.status(400).end();
     }
 
     // Buscamos el usuario por username.
     const user = await User.findByUsername(username);
-    // Si no existe, respondemos no autorizado.
     if (!user) {
       return res.status(401).end();
     }
 
     // Comparamos la contraseña enviada con el hash guardado en la base.
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    // Si no coincide, tambien devolvemos 401.
     if (!isPasswordValid) {
       return res.status(401).end();
     }
 
     // Armamos un JWT con datos basicos del usuario.
     const token = jwt.sign(
-      // El payload viaja firmado dentro del token.
       { userId: user._id, username: user.username },
-      // Esta clave secreta firma el token y luego permite validarlo.
       process.env.JWT_SECRET,
-      // El token dura 24 horas antes de expirar.
       { expiresIn: '24h' }
     );
 
     // Devolvemos el token para que el frontend lo guarde y lo mande en Authorization.
     return res.json({ token });
   } catch (error) {
-    // Cualquier error inesperado cae aqui.
     res.status(500).end();
   }
 };
 
-// Exportamos las dos funciones para usarlas en las rutas.
-module.exports = { register, login };
+module.exports = { lookupIdentity, register, login };
