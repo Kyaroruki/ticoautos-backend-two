@@ -35,7 +35,18 @@ Crear `.env` en la raíz:
 PORT=3000
 DATABASE_URL=mongodb://127.0.0.1:27017/ticoautos
 JWT_SECRET=tu_clave_secreta
+PADRON_DB_NAME=padron
+PADRON_COLLECTION=padron
 ```
+
+La consulta de padron es solo local con MongoDB.
+Se está usando `padron.padron`. 
+
+## Registro con padron
+
+- `GET /api/auth/identity/:identifyNumber`: valida la cedula en el padron y devuelve nombre y apellidos.
+- Si la cedula no existe en el padron, el usuario no se registra.
+- Los datos `name` y `lastname` se toman del padron, no del frontend.
 
 ## Autenticación
 

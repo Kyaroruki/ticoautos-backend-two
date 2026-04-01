@@ -5,6 +5,8 @@ const upload = require('../middlewares/upload');
 
 const authController = require('../controllers/authController');
 
+router.get('/identity/:identifyNumber', authController.lookupIdentity);
+
 router.post('/register', upload.single('profileImage'), authController.register);
 
 router.post('/login', authController.login);
