@@ -3,19 +3,23 @@ const connectDB = require('../config/db');
 
 const getPadronDatabaseConfig = connectDB.getPadronDatabaseConfig;
 
-// Busca la persona en Mongo usando CEDULA 
-async function findPadronPersonInMongo(id) {
-  if (mongoose.connection.readyState !== 1) {
-    throw new Error('Mongo connection is not ready');
+// --- CONEXIÓN SECUNDARIA al padrón ---
+let padronConnection = null;
+function getPadronConnection() {
+  if (!padronConnection) {
+    const uri = process.env.PADRON_DATABASE_URL || 'mongodb://127.0.0.1:27017';
+    const dbName = process.env.PADRON_DB_NAME;
+    padronConnection = mongoose.createConnection(uri, { dbName });
   }
+  return padronConnection;
+}
 
-  const { dbName, collectionName } = getPadronDatabaseConfig();
-  const padronDb = mongoose.connection.useDb(dbName, { useCache: true });
+// Busca la persona en Mongo usando CEDULA
+async function findPadronPersonInMongo(id) {
+  // Usa la conexión secundaria SOLO para el padrón
+  const collection = getPadronConnection().collection(process.env.PADRON_COLLECTION);
   const idNum = Number(id);
-
-  // Buscamos el registro que tenga el número de cédula igual al idNum
-  // y solo traemos cedula, nombre y apellidos.
-  const person = await padronDb.collection(collectionName).findOne(
+  const person = await collection.findOne(
     { CEDULA: idNum },
     {
       projection: {
