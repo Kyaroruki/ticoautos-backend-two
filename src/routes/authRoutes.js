@@ -11,4 +11,8 @@ router.post('/register', upload.single('profileImage'), authController.register)
 
 router.post('/login', authController.login);
 
+// Rutas para Google OAuth2
+router.post('/google', authController.googleAuth);
+router.post('/google/register', authController.googleRegister);
+
 module.exports = router;
