@@ -31,6 +31,10 @@ const authMiddleware = (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: 'Usuario no encontrado' });
     }
+    //NUEVO: PARA VERIFICACION POR EMAIL
+    if (user.status === 'pending') {
+      return res.status(403).end();
+    }
     // Guardamos el usuario en req.user para que el siguiente handler lo use facilito.
     req.user = user;
     // Seguimos al siguiente middleware o controlador.

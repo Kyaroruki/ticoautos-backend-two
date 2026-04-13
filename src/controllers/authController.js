@@ -3,9 +3,38 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const { fetchPadronPerson } = require('../utils/padronService');
+//NUEVO: Para verificacion por email
+const {buildVerificationUrl,createVerificationTokenData,sendVerificationEmail} = require('../utils/emailService');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+//NUEVO: Para verificacion por email
+const createPendingUserWithVerification = async (userData) => {
+  const { verificationTokenEmail, expiresAt } = createVerificationTokenData();
 
+  const user = await User.createUser({
+    ...userData, //esto trae todos lo datos de usuario
+    status: 'pending',
+    verificationTokenEmail,
+    verificationTokenExpiresAt: expiresAt
+  });
+
+  // Enviamos el email de verificación. 
+  try {
+    await sendVerificationEmail({
+      to: user.email,
+      name: user.name,
+      verificationUrl: buildVerificationUrl(verificationTokenEmail)
+    });
+
+    return user;
+  } catch (error) {
+    //Si falla el envío borramos el usuario creado para no tener cuentas pendientes sin poder activar.
+    await User.findByIdAndDelete(user._id);
+    throw error;
+  }
+};
+
+//Para el padron
 const lookupIdentity = async (req, res) => {
   try {
     const identifyNumber = req.params.identifyNumber || req.query.identify_number;
@@ -52,6 +81,10 @@ const register = async (req, res) => {
 
     const existingUserByEmail = await User.findOne({ email });
     if (existingUserByEmail) {
+      if (existingUserByEmail.status === 'pending') {
+        return res.status(409).end();
+      }
+
       return res.status(409).end();
     }
 
@@ -64,7 +97,7 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Creamos el usuario con los datos finales 
-    await User.createUser({
+    await createPendingUserWithVerification({
       username,
       password: hashedPassword,
       name: person.name,
@@ -101,6 +134,11 @@ const googleAuth = async (req, res) => {
     const existingUser = await User.findOne({ $or: [{ googleId }, { email }] });
 
     if (existingUser) {
+      //NUEVO: para verificacion por email
+      if (existingUser.status === 'pending') {
+        return res.status(403).end();
+      }
+
       // Si ya existe, genera el JWT y permite el acceso
       const token = jwt.sign(
         { userId: existingUser._id, username: existingUser.username },
@@ -136,7 +174,13 @@ const googleRegister = async (req, res) => {
 
     // Verifica que no exista otro usuario con el mismo googleId o email
     const existingUser = await User.findOne({ $or: [{ googleId }, { email }] });
-    if (existingUser) return res.status(409).end();
+    if (existingUser) {
+      if (existingUser.status === 'pending') {
+        return res.status(409).end();
+      }
+
+      return res.status(409).end();
+    }
 
     // Valida la cédula con el padrón
     const numericId = Number(identify_number);
@@ -151,7 +195,7 @@ const googleRegister = async (req, res) => {
     if (existingByIdentify) return res.status(409).end();
 
     // Crea el usuario sin contraseña (solo Google)
-    const newUser = await User.createUser({
+    await createPendingUserWithVerification({
       username,
       password: '',
       googleId,
@@ -162,13 +206,7 @@ const googleRegister = async (req, res) => {
       phone_number
     });
 
-    const token = jwt.sign(
-      { userId: newUser._id, username: newUser.username },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    return res.status(201).json({ token });
+    return res.status(201).end();
   } catch (error) {
     return res.status(500).end();
   }
@@ -187,6 +225,11 @@ const login = async (req, res) => {
     const user = await User.findByUsername(username);
     if (!user) {
       return res.status(401).end();
+    }
+    //Para verificacion por email
+
+    if (user.status === 'pending') {
+      return res.status(403).end();
     }
 
     // Comparamos la contraseña enviada con el hash guardado en la base.
@@ -209,4 +252,37 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { lookupIdentity, register, login, googleAuth, googleRegister };
+// GET /api/auth/verify-email
+// Recibe el token de verificación, lo valida, 
+// activa la cuenta y borra el token que se habia enviado por email, es de un solo uso.
+const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).end();
+    }
+
+    const user = await User.findOne({
+      verificationTokenEmail: token,
+      verificationTokenExpiresAt: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).end();
+    }
+
+    // Si el token es valido, activamos la cuenta y 
+    // limpiamos los campos de verificacion.
+    user.status = 'active';
+    user.verificationTokenEmail = null;
+    user.verificationTokenExpiresAt = null;
+    await user.save();
+
+    return res.status(200).end();
+  } catch (error) {
+    return res.status(500).end();
+  }
+};
+
+module.exports = { lookupIdentity, register, login, googleAuth, googleRegister, verifyEmail };

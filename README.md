@@ -34,9 +34,13 @@ Crear `.env` en la raíz:
 ```env
 PORT=3000
 DATABASE_URL=mongodb://127.0.0.1:27017/ticoautos
-JWT_SECRET=tu_clave_secreta
+JWT_SECRET=clave_secreta
 PADRON_DB_NAME=padron
 PADRON_COLLECTION=padron
+SENDGRID_API_KEY=api_key_de_sendgrid
+SENDGRID_FROM_EMAIL=correo_verificado_en_sendgrid
+SENDGRID_FROM_NAME=TicoAutos
+FRONTEND_BASE_URL=http://localhost:3001
 ```
 
 La consulta de padron es solo local con MongoDB.
