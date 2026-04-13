@@ -51,6 +51,22 @@ const UserSchema = new mongoose.Schema({
         default: ''
     },
 
+    status: {
+        type: String,
+        enum: ['pending', 'active'],
+        default: 'active'
+    },
+
+    verificationTokenEmail: {
+        type: String,
+        default: null
+    },
+
+    verificationTokenExpiresAt: {
+        type: Date,
+        default: null
+    },
+
     date: {
         type: Date,
         default: Date.now
