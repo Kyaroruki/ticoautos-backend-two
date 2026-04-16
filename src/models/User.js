@@ -70,6 +70,15 @@ const UserSchema = new mongoose.Schema({
     date: {
         type: Date,
         default: Date.now
+    },
+
+    twoFACode: {
+        type: String,
+        default: null
+    },
+    twoFACodeExpiresAt: {
+        type: Date,
+        default: null
     }
 });
 

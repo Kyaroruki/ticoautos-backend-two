@@ -3,11 +3,10 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const { fetchPadronPerson } = require('../utils/padronService');
-//NUEVO: Para verificacion por email
 const {buildVerificationUrl,createVerificationTokenData,sendVerificationEmail} = require('../utils/emailService');
-
+const { sendVerificationCode } = require('../utils/smsService');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-//NUEVO: Para verificacion por email
+
 const createPendingUserWithVerification = async (userData) => {
   const { verificationTokenEmail, expiresAt } = createVerificationTokenData();
 
@@ -213,6 +212,8 @@ const googleRegister = async (req, res) => {
 };
 
 // Ruta: POST /api/auth/login
+// PASO 1 del flujo 2FA: valida usuario/contraseña, envía código por SMS.
+// No devuelve el token aún; el token se genera en /verify-2fa.
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -226,8 +227,8 @@ const login = async (req, res) => {
     if (!user) {
       return res.status(401).end();
     }
-    //Para verificacion por email
 
+    // Si la cuenta aún no fue activada por email, no puede ingresar.
     if (user.status === 'pending') {
       return res.status(403).end();
     }
@@ -238,17 +239,60 @@ const login = async (req, res) => {
       return res.status(401).end();
     }
 
-    // Armamos un JWT con datos basicos del usuario.
+    // Generamos código 2FA de 6 dígitos y lo guardamos con expiración de 5 minutos.
+    const twoFACode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.twoFACode = twoFACode;
+    user.twoFACodeExpiresAt = new Date(Date.now() + 7 * 60 * 1000);
+    await user.save();
+
+    // Enviamos el código por SMS al número registrado del usuario.
+    await sendVerificationCode(user.phone_number, twoFACode);
+
+    // Informamos al frontend que se requiere el código 2FA.
+    return res.json({ twoFARequired: true });
+  } catch (error) {
+    res.status(500).end();
+  }
+};
+
+// Ruta: POST /api/auth/verify-2fa
+// PASO 2 del flujo 2FA: valida el código del SMS y devuelve el JWT.
+const verify2FA = async (req, res) => {
+  try {
+    const { username, code } = req.body;
+
+    if (!username || !code) {
+      return res.status(400).end();
+    }
+
+    const user = await User.findByUsername(username);
+
+    // Validamos que el código exista, no haya expirado y coincida.
+    if (
+      !user ||
+      !user.twoFACode ||
+      !user.twoFACodeExpiresAt ||
+      user.twoFACode !== code ||
+      user.twoFACodeExpiresAt < new Date()
+    ) {
+      return res.status(401).end();
+    }
+
+    // Código correcto: limpiamos los campos 2FA.
+    user.twoFACode = null;
+    user.twoFACodeExpiresAt = null;
+    await user.save();
+
+    // Generamos y devolvemos el JWT.
     const token = jwt.sign(
       { userId: user._id, username: user.username },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
-    // Devolvemos el token para que el frontend lo guarde y lo mande en Authorization.
     return res.json({ token });
   } catch (error) {
-    res.status(500).end();
+    return res.status(500).end();
   }
 };
 
@@ -285,4 +329,4 @@ const verifyEmail = async (req, res) => {
   }
 };
 
-module.exports = { lookupIdentity, register, login, googleAuth, googleRegister, verifyEmail };
+module.exports = { lookupIdentity, register, login, verify2FA, googleAuth, googleRegister, verifyEmail };

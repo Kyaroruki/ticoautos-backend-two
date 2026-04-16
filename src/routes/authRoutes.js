@@ -11,6 +11,7 @@ router.get('/verify-email', authController.verifyEmail);//NUEVO: Ruta para verif
 router.post('/register', upload.single('profileImage'), authController.register);
 
 router.post('/login', authController.login);
+router.post('/verify-2fa', authController.verify2FA); 
 
 // Rutas para Google OAuth2
 router.post('/google', authController.googleAuth);
