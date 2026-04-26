@@ -7,6 +7,7 @@ API REST para TicoAutos. Maneja autenticación con JWT, publicación de vehícul
 - Node.js
 - Express
 - MongoDB + Mongoose
+- GraphQL (Apollo server)
 - JWT
 - bcryptjs
 
@@ -26,6 +27,8 @@ npm start
 
 Servidor: `http://localhost:3000`
 Base API: `http://localhost:3000/api`
+GraphQL: `http://localhost:3000/graphql`
+
 
 ## Variables de entorno
 
@@ -59,6 +62,25 @@ Las rutas protegidas usan:
 ```http
 Authorization: Bearer <token>
 ```
+## Arquitectura
+
+El backend es híbrido:
+
+### REST (Express)
+
+Se utiliza para:
+
+Autenticación (login, registro, 2FA)
+Creación, edición y eliminación de vehiculos
+Subir imagenes
+### GraphQL (Apollo Server)
+
+Se utiliza para:
+
+Consultas de datos (GET)
+Listado de vehículos
+Detalles de vehículo
+Preguntas y respuestas
 
 ## Reglas 
 
