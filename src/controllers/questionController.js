@@ -2,74 +2,7 @@ const Question = require('../models/Question');
 const Answer = require('../models/Answer');
 const Vehicle = require('../models/Vehicle');
 
-// Este endpoint trae las preguntas de un vehiculo.
-exports.getVehicleQuestions = async (req, res) => {
-  try {
-    const { vehicleId } = req.params; 
-    const userId = req.user?._id;
-
-    if (!userId) return res.status(401).json({ message: 'Not authenticated' });
-
-    const vehicle = await Vehicle.findById(vehicleId).lean();
-    if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
-
-    const isOwner = String(vehicle.owner) === String(userId);
-
-    const filter = isOwner
-      ? { vehicle: vehicleId }
-      : { vehicle: vehicleId, user: userId };
-
-    const result = await Question.findWithAnswers(filter);
-
-    // Le estoy devolviendo al frontend si el usuario es dueño del carro y también la lista de preguntas
-    return res.json({ isOwner, questions: result });
-  } catch (error) {
-    return res.status(500).json({ message: 'Error fetching questions', error });
-  }
-};
-
-//preguntas de todos sus vehiculos.
-exports.getOwnerInbox = async (req, res) => {
-  try {
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-
-    //buscamos todos los vehiculos asociados al usuario logueado y solo traemos su id.
-    const ownedVehicles = await Vehicle.find({ owner: userId }).select('_id').lean();
-
-    //sacamos el id del vehiculo con map
-    const vehicleIds = ownedVehicles.map((vehicle) => vehicle._id);
-
-    if (!vehicleIds.length) {
-      return res.json({ questions: [] });
-    }
-    //buscamos todas las preguntas asociadas a esos vehiculos usando 
-    // $in para traer las preguntas de cualquiera de esos vehiculos.
-    const questions = await Question.findWithAnswers({ vehicle: { $in: vehicleIds } });
-    return res.json({ questions });
-  } catch (error) {
-    return res.status(500).json({ message: 'Error fetching inbox', error });
-  }
-};
-
-exports.getMyQuestions = async (req, res) => {
-  try {
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-    const questions = await Question.findWithAnswers({ user: userId });
-    return res.json({ questions });
-  } catch (error) {
-    return res.status(500).json({ message: 'Error fetching your questions', error });
-  }
-};
-
-exports.createQuestion = async (req, res) => {
+const createQuestion = async (req, res) => {
   try {
     const { vehicleId } = req.params;
     const { content } = req.body;
@@ -130,7 +63,7 @@ exports.createQuestion = async (req, res) => {
 };
 
 // Ruta real: POST /api/questions/:questionId/answer
-exports.createAnswer = async (req, res) => {
+const createAnswer = async (req, res) => {
   try {
     const { questionId } = req.params;
     const { content } = req.body;
@@ -170,4 +103,9 @@ exports.createAnswer = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error creating answer', error });
   }
+};
+
+module.exports = {
+  createQuestion,
+  createAnswer
 };

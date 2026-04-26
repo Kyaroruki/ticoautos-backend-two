@@ -42,5 +42,28 @@ const authMiddleware = (req, res, next) => {
   });
 };
 
+// para graphql, necesitamos una funcion que haga lo mismo pero devuelva el user en vez de usar res.status, 
+// porque graphql maneja los errores diferente.
+const getUserFromToken = async (authHeader) => {
+  if (!authHeader) return null;
+
+  const token = authHeader.split(' ')[1];
+  if (!token) return null;
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(payload.userId);
+
+    if (!user || user.status === 'pending') return null;
+
+    return user;
+  } catch {
+    return null;
+  }
+};
+
 // Exportamos el middleware para reutilizarlo en las rutas protegidas.
-module.exports = authMiddleware;
+module.exports = {
+  authMiddleware,
+  getUserFromToken
+};
