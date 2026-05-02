@@ -96,7 +96,7 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Creamos el usuario con los datos finales 
-    await createPendingUserWithVerification({
+    const user = await createPendingUserWithVerification({
       username,
       password: hashedPassword,
       name: person.name,
@@ -107,7 +107,7 @@ const register = async (req, res) => {
       profileImage: profileImage || ''
     });
 
-    return res.status(201).end();
+    return res.status(201).location(`/api/auth/users/${user._id}`).end();
   } catch (error) {
     return res.status(500).end();
   }
@@ -194,7 +194,7 @@ const googleRegister = async (req, res) => {
     if (existingByIdentify) return res.status(409).end();
 
     // Crea el usuario sin contraseña (solo Google)
-    await createPendingUserWithVerification({
+    const user = await createPendingUserWithVerification({
       username,
       password: '',
       googleId,
@@ -205,7 +205,7 @@ const googleRegister = async (req, res) => {
       phone_number
     });
 
-    return res.status(201).end();
+    return res.status(201).location(`/api/auth/users/${user._id}`).end();
   } catch (error) {
     return res.status(500).end();
   }

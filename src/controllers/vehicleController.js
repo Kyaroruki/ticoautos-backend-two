@@ -21,7 +21,7 @@ const createVehicle = async (req, res) => {
 			image
 		});
 		await vehicle.save();
-		res.status(201).json(vehicle);
+		res.status(201).location(`/api/vehicles/${vehicle._id}`).json(vehicle);
 	} catch (error) {
 		res.status(500).end();
 	}

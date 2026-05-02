@@ -4,18 +4,11 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const connectDB = require('./config/db');
-const { ApolloServer } = require('apollo-server-express');
-const typeDefs = require('./graphql/schema');
-const resolvers = require('./graphql/resolvers');
-
-const { getUserFromToken } = require('./middlewares/authMiddleware');
 
 connectDB();
 
 const app = express();
-
 app.use('/api', express.json());
-
 app.use(cors({
   origin: '*',
   methods: '*'
@@ -29,29 +22,18 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/vehicles', require('./routes/vehicleRoutes'));
 app.use('/api/questions', require('./routes/questionRoutes'));
 
-// GRAPHQL
-async function startServer() {
-  const server = new ApolloServer({
-    typeDefs,
-    resolvers,
-    context: async ({ req }) => {
-      const authHeader = req.headers.authorization || "";
-      const user = await getUserFromToken(authHeader);
-      return { user };
-    }
-  });
+app.listen(process.env.PORT, () => {
+  console.log(`REST corriendo en puerto ${process.env.PORT}`);
+});
 
-  await server.start();
+// Servicio del padrón en puerto separado
+const padronApp = express();
+padronApp.use(express.json());
+padronApp.use(cors({ origin: '*', methods: '*' }));
 
-  server.applyMiddleware({
-    app,
-    path: '/graphql'
-  });
+const { lookupIdentity } = require('./controllers/authController');
+padronApp.get('/identity/:identifyNumber', lookupIdentity);
 
-  app.listen(process.env.PORT, () => {
-    console.log(`REST corriendo en puerto ${process.env.PORT}`);
-    console.log(`GraphQL listo en http://localhost:${process.env.PORT}/graphql`);
-  });
-}
-
-startServer();
+padronApp.listen(process.env.PADRON_PORT, () => {
+  console.log(`Padrón corriendo en puerto ${process.env.PADRON_PORT}`);
+});

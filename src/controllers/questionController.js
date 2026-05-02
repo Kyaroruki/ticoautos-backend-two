@@ -56,7 +56,7 @@ const createQuestion = async (req, res) => {
 
     // vuelve a buscarla y reemplaza el user que era solo un id por 
     // los datos del usuario.
-    return res.status(201).json({ ...populated, answers: [] });
+    return res.status(201).location(`/api/questions/${question._id}`).json({ ...populated, answers: [] });
   } catch (error) {
     return res.status(500).json({ message: 'Error creating question', error });
   }
@@ -99,7 +99,7 @@ const createAnswer = async (req, res) => {
     await answer.save();
     //vuelve a buscarla y reemplaza el user que era solo un id por los datos del usuario.
     const populated = await Answer.findById(answer._id).populate('user', 'username name').lean();
-    res.status(201).json(populated);
+    res.status(201).location(`/api/questions/${questionId}/answer`).json(populated);
   } catch (error) {
     res.status(500).json({ message: 'Error creating answer', error });
   }
