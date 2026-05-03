@@ -1,13 +1,12 @@
 # TicoAutos Backend
 
-API REST para TicoAutos. Maneja autenticación con JWT, publicación de vehículos, subida de imágenes y preguntas/respuestas entre comprador y vendedor.
+API REST para TicoAutos. Maneja autenticación con JWT, publicación de vehículos, subir imágenes y preguntas/respuestas entre comprador y vendedor.
 
 ## Stack
 
 - Node.js
 - Express
 - MongoDB + Mongoose
-- GraphQL (Apollo server)
 - JWT
 - bcryptjs
 
@@ -21,14 +20,11 @@ API REST para TicoAutos. Maneja autenticación con JWT, publicación de vehícul
 
 ```bash
 npm install
-npm run dev
 npm start
 ```
 
 Servidor: `http://localhost:3000`
 Base API: `http://localhost:3000/api`
-GraphQL: `http://localhost:3000/graphql`
-
 
 ## Variables de entorno
 
@@ -37,7 +33,7 @@ Crear `.env` en la raíz:
 ```env
 PORT=3000
 DATABASE_URL=mongodb://127.0.0.1:27017/ticoautos
-JWT_SECRET=clave_secreta
+JWT_SECRET= clave
 PADRON_DB_NAME=padron
 PADRON_COLLECTION=padron
 SENDGRID_API_KEY=api_key_de_sendgrid
@@ -73,14 +69,7 @@ Se utiliza para:
 Autenticación (login, registro, 2FA)
 Creación, edición y eliminación de vehiculos
 Subir imagenes
-### GraphQL (Apollo Server)
 
-Se utiliza para:
-
-Consultas de datos (GET)
-Listado de vehículos
-Detalles de vehículo
-Preguntas y respuestas
 
 ## Reglas 
 
