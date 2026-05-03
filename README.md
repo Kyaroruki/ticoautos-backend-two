@@ -89,3 +89,5 @@ Preguntas y respuestas
 - Solo el dueño del vehículo puede responder
 - Cada pregunta admite una sola respuesta
 - Solo el dueño puede editar, eliminar o marcar como vendido un vehículo
+
+![Arquitectura](./arquitectura.drawio.png)
